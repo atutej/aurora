@@ -68,7 +68,7 @@ class Parser(ABC):
         return self.format(conversation, **kwargs)
 
     def _ensure_pad_token(self):
-        if not self.tokenizer.pad_token_id:
+        if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.unk_token_id
 
     def _tokenize_with_loss_mask(
