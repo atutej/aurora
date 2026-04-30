@@ -1,5 +1,7 @@
 # Aurora
 
+> Accepted at **ICML 2026**. Paper: https://arxiv.org/abs/2602.06932
+
 Aurora is a unified training-serving system for online speculative decoding. It closes the loop between speculator training and serving by continuously learning a draft model directly from live inference traces — treating online speculator learning as an asynchronous reinforcement-learning problem. Aurora is built on top of [TorchSpec](https://github.com/torchspec-project/TorchSpec).
 
 Aurora supports **day-0 deployment**: a speculator can be served immediately and rapidly adapted to live traffic, improving system performance while providing immediate utility feedback. Across experiments, Aurora achieves a **1.5x day-0 speedup** on recently released frontier models (e.g., MiniMax-M2.1 and Qwen3-Coder-Next), and adapts effectively to distribution shifts in user traffic, delivering an additional **1.25x speedup** over a well-trained but static speculator on widely used models (e.g., Qwen3).
@@ -96,10 +98,11 @@ AURORA_LOG_LEVEL=DEBUG bash examples/qwen3-4b-external-with-draft/run.sh
 ## Citation
 
 ```bibtex
-@article{wang2026aurora,
+@inproceedings{wang2026aurora,
   title={When RL Meets Adaptive Speculative Training: A Unified Training--Serving System},
-  author={Wang, Junxiong and Bie, Fengxiang and Li, Jisen and Zhou, Zhongzhu and Shao, Zelei and Wang, Yubo and Liu, Yinghui and Wu, Qingyang and May, Avner and Yanamandra, Sri and Zhang, Yineng and Zhang, Ce and Dao, Tri and Liang, Percy and Athiwaratkun, Ben and Song, Shuaiwen Leon and Xu, Chenfeng and Wu, Xiaoxia},
-  journal={arXiv preprint arXiv:2602.06932},
-  year={2026}
+  author={Wang, Junxiong and Bie, Fengxiang and Li, Jisen and Zhou, Zhongzhu and Shao, Zelei and Wang, Yubo and Liu, Yinghui and Wu, Qingyang and May, Avner and Yanamandra, Sri and Zhang, Ce and Dao, Tri and Liang, Percy and Athiwaratkun, Ben and Song, Shuaiwen Leon and Xu, Chenfeng and Wu, Xiaoxia},
+  booktitle={International Conference on Machine Learning (ICML)},
+  year={2026},
+  note={\url{https://arxiv.org/abs/2602.06932}}
 }
 ```
