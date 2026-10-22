@@ -25,6 +25,7 @@ from typing import Union
 from transformers import AutoModelForCausalLM as AutoModelForCausalLMBase
 from transformers import LlamaConfig, PretrainedConfig, modeling_utils
 
+from aurora.models.draft.dspark import DSparkConfig, DSparkDraftModel
 from aurora.models.draft.llama3_eagle import LlamaForCausalLMEagle3
 from aurora.utils.logging import logger
 
@@ -32,6 +33,7 @@ from aurora.utils.logging import logger
 class AutoEagle3DraftModel(AutoModelForCausalLMBase):
     _model_mapping = {
         LlamaConfig: LlamaForCausalLMEagle3,
+        DSparkConfig: DSparkDraftModel,
     }
 
     @classmethod
@@ -50,6 +52,13 @@ class AutoEagle3DraftModel(AutoModelForCausalLMBase):
         *model_args,
         **kwargs,
     ):
+        # Our DSpark checkpoints have no `model_type` in their config.json (HF's Auto classes cannot resolve them): dispatch on `architectures`.
+        config_path = os.path.join(str(pretrained_model_name_or_path), "config.json")
+        if os.path.exists(config_path):
+            with open(config_path) as f:
+                if "DSparkDraftModel" in (json.load(f).get("architectures") or []):
+                    return DSparkDraftModel.from_pretrained(pretrained_model_name_or_path, *model_args, **kwargs)
+
         original_warn = modeling_utils.logger.warning
 
         def filtered_warning(msg):
@@ -70,6 +79,7 @@ class AutoEagle3DraftModel(AutoModelForCausalLMBase):
 class AutoDraftModelConfig:
     _config_mapping = {
         "LlamaForCausalLMEagle3": LlamaConfig,
+        "DSparkDraftModel": DSparkConfig,
     }
 
     @classmethod

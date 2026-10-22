@@ -26,6 +26,7 @@ import torch.distributed as dist
 
 from aurora import AutoDraftModelConfig
 from aurora.ray.ray_actor import RayActor
+from aurora.training.dspark_trainer import DSparkTrainer
 from aurora.training.eagle3_trainer import Eagle3Trainer
 from aurora.utils.distributed import init_gloo_group
 from aurora.utils.logging import setup_file_logging
@@ -64,7 +65,8 @@ class TrainerActor(RayActor):
         args.rank = dist.get_rank()
         args.world_size = dist.get_world_size()
 
-        self._trainer = Eagle3Trainer(args)
+        algorithm = str(getattr(args, "decode_speculative_algorithm", None) or "").upper()
+        self._trainer = (DSparkTrainer if algorithm == "DSPARK" else Eagle3Trainer)(args)
 
         draft_model_config = getattr(args, "draft_model_config_obj", None)
         if draft_model_config is None and getattr(args, "draft_model_config", None):
