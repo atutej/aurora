@@ -146,9 +146,12 @@ def _load_pretokenized_dataset(args):
     ):
         input_ids = sample.get("input_ids")
         labels = sample.get("labels")
+        if labels is None and sample.get("loss_mask") is not None and input_ids is not None:
+            # Token-id datasets that carry a 0/1 loss mask instead of -100 labels (e.g. Datakit); only the mask is used below.
+            labels = [tok if m else -100 for tok, m in zip(input_ids[:max_length], sample["loss_mask"][:max_length])]
         if input_ids is None or labels is None:
             raise ValueError(
-                f"Pretokenized dataset sample {idx} missing 'input_ids' or 'labels'. "
+                f"Pretokenized dataset sample {idx} missing 'input_ids' or 'labels' (or 'loss_mask'). "
                 f"Available keys: {list(sample.keys())}"
             )
 
