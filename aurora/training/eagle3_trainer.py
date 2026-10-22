@@ -62,54 +62,15 @@ class Eagle3Trainer(Trainer):
                 mooncake_config.master_server_address, mooncake_config.metadata_server
             )
 
-        draft_pretrained_path = getattr(self.args, "draft_pretrained_path", None)
-
-        if draft_pretrained_path and dist.get_rank() == 0:
-            logger.info(f"Loading pretrained draft model from {draft_pretrained_path}")
-            draft_model = AutoEagle3DraftModel.from_pretrained(
-                draft_pretrained_path,
-                attention_backend=self.args.attention_backend,
-                torch_dtype=torch.bfloat16,
-            )
-        else:
-            init_context = self._get_init_weight_context_manager()
-            with init_context():
-                draft_model = AutoEagle3DraftModel.from_config(
-                    draft_model_config,
-                    attention_backend=self.args.attention_backend,
-                    torch_dtype=torch.bfloat16,
-                )
-
-        if dist.get_rank() == 0:
-            draft_model.load_embedding(
-                target_model_path,
-                embedding_key=getattr(self.args, "embedding_key", "model.embed_tokens"),
-            )
-
-        draft_model.freeze_embedding()
-
-        dist.barrier(group=get_gloo_group())
-
-        frozen_count = sum(p.numel() for p in draft_model.parameters() if not p.requires_grad)
-        trainable_count = sum(p.numel() for p in draft_model.parameters() if p.requires_grad)
-        logger.info(
-            f"[Rank {self.dp_rank}] Draft model: {trainable_count:,} trainable, "
-            f"{frozen_count:,} frozen (embedding) parameters"
-        )
-
-        eagle3_model = Eagle3Model(
-            draft_model=draft_model,
-            length=self.args.ttt_length,
-            attention_backend=self.args.attention_backend,
-            gradient_checkpointing=getattr(self.args, "gradient_checkpointing", True),
-        )
+        draft_model = self._build_draft_model(draft_model_config, target_model_path)
+        eagle3_model = self._wrap_draft_model(draft_model)
 
         full_state = eagle3_model.state_dict() if dist.get_rank() == 0 else {}
 
         midlayer_modules = [
             m
             for name, m in eagle3_model.named_modules()
-            if isinstance(m, torch.nn.Linear) and "midlayer" in name
+            if isinstance(m, torch.nn.Linear) and self.shard_module_key in name
         ]
         eagle3_model = apply_fsdp2(
             eagle3_model,
@@ -177,6 +138,56 @@ class Eagle3Trainer(Trainer):
         logger.info(f"[Rank {self.dp_rank}] Eagle3 model initialized with FSDP2")
 
         return 0
+
+    # Hooks that a subclass for another draft architecture overrides (see DSparkTrainer); the rest of init_model is shared.
+    shard_module_key = "midlayer"   # FULL_SHARD shards the Linear modules whose name contains this
+
+    def _build_draft_model(self, draft_model_config, target_model_path: str):
+        """The draft model, from a pretrained checkpoint or a config, with the target's embedding loaded and frozen."""
+        draft_pretrained_path = getattr(self.args, "draft_pretrained_path", None)
+
+        if draft_pretrained_path and dist.get_rank() == 0:
+            logger.info(f"Loading pretrained draft model from {draft_pretrained_path}")
+            draft_model = AutoEagle3DraftModel.from_pretrained(
+                draft_pretrained_path,
+                attention_backend=self.args.attention_backend,
+                torch_dtype=torch.bfloat16,
+            )
+        else:
+            init_context = self._get_init_weight_context_manager()
+            with init_context():
+                draft_model = AutoEagle3DraftModel.from_config(
+                    draft_model_config,
+                    attention_backend=self.args.attention_backend,
+                    torch_dtype=torch.bfloat16,
+                )
+
+        if dist.get_rank() == 0:
+            draft_model.load_embedding(
+                target_model_path,
+                embedding_key=getattr(self.args, "embedding_key", "model.embed_tokens"),
+            )
+
+        draft_model.freeze_embedding()
+
+        dist.barrier(group=get_gloo_group())
+
+        frozen_count = sum(p.numel() for p in draft_model.parameters() if not p.requires_grad)
+        trainable_count = sum(p.numel() for p in draft_model.parameters() if p.requires_grad)
+        logger.info(
+            f"[Rank {self.dp_rank}] Draft model: {trainable_count:,} trainable, "
+            f"{frozen_count:,} frozen (embedding) parameters"
+        )
+        return draft_model
+
+    def _wrap_draft_model(self, draft_model):
+        """The module the trainer calls (Eagle3Model: the train-time-test unroll around the draft)."""
+        return Eagle3Model(
+            draft_model=draft_model,
+            length=self.args.ttt_length,
+            attention_backend=self.args.attention_backend,
+            gradient_checkpointing=getattr(self.args, "gradient_checkpointing", True),
+        )
 
     # ------------------------------------------------------------------
     # Eagle3-specific helpers
