@@ -24,7 +24,10 @@ import ray
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
 
 from aurora.inference.engine.hf_engine import HFEngine
-from aurora.inference.engine.sgl_engine import SglEngine
+try:  # SGLang is only needed for the "sgl" engine type
+    from aurora.inference.engine.sgl_engine import SglEngine
+except ImportError:  # pragma: no cover
+    SglEngine = None
 from aurora.utils.env import get_aurora_env_vars
 from aurora.utils.logging import logger
 
@@ -180,6 +183,8 @@ def _prepare_sgl_engines(
     )
 
     pg_obj, reordered_bundle_indices, reordered_gpu_ids = pg
+    if SglEngine is None:
+        raise RuntimeError("inference_engine_type='sgl' needs sglang, which is not installed in this environment")
     SglRayActor = ray.remote(SglEngine)
     env_vars = get_aurora_env_vars()
 

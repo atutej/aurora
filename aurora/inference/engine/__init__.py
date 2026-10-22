@@ -21,7 +21,10 @@
 from aurora.inference.engine.base import InferenceEngine
 from aurora.inference.engine.hf_engine import HFEngine
 from aurora.inference.engine.hf_runner import HFRunner
-from aurora.inference.engine.sgl_engine import SglEngine
+try:  # SGLang is only needed for the "sgl" engine type
+    from aurora.inference.engine.sgl_engine import SglEngine
+except ImportError:  # pragma: no cover
+    SglEngine = None
 
 __all__ = [
     "InferenceEngine",
