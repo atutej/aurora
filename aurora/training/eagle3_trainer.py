@@ -200,9 +200,9 @@ class Eagle3Trainer(Trainer):
             )
             logger.info(f"[Rank 0] TargetLMHead loaded from {target_model_path}")
         else:
-            from transformers import AutoConfig
+            from aurora.models.target.target_utils import load_target_config
 
-            config = AutoConfig.from_pretrained(
+            config = load_target_config(
                 target_model_path,
                 trust_remote_code=getattr(self.args, "trust_remote_code", True),
             )

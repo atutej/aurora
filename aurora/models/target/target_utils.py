@@ -30,6 +30,24 @@ from safetensors import safe_open
 from transformers import AutoConfig
 
 
+def load_target_config(model_path: str, cache_dir: Optional[str] = None, trust_remote_code: bool = False):
+    """AutoConfig for the target, falling back to its config.json for model types transformers does not know (e.g. grug_moe).
+
+    TargetLMHead only needs hidden_size and vocab_size, which any config.json carries.
+    """
+    try:
+        return AutoConfig.from_pretrained(model_path, cache_dir=cache_dir, trust_remote_code=trust_remote_code)
+    except (ValueError, KeyError):
+        import json
+        from types import SimpleNamespace
+
+        from huggingface_hub import hf_hub_download
+
+        path = os.path.join(model_path, "config.json") if os.path.isdir(model_path) else hf_hub_download(model_path, "config.json", cache_dir=cache_dir)
+        with open(path) as f:
+            return SimpleNamespace(**json.load(f))
+
+
 class TargetLMHead(nn.Module):
     """
     Efficiently loads only the lm_head from a pretrained model.
@@ -51,9 +69,7 @@ class TargetLMHead(nn.Module):
         dtype: torch.dtype = torch.bfloat16,
         trust_remote_code: bool = False,
     ) -> "TargetLMHead":
-        config = AutoConfig.from_pretrained(
-            model_path, cache_dir=cache_dir, trust_remote_code=trust_remote_code
-        )
+        config = load_target_config(model_path, cache_dir=cache_dir, trust_remote_code=trust_remote_code)
         instance = cls(config)
 
         local_model_path = model_path
