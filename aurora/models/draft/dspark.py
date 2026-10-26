@@ -60,6 +60,16 @@ class DSparkConfig(PretrainedConfig):
         self.vocab_size = tl.get("vocab_size")
         self.hidden_size = tl.get("hidden_size")
         self.rms_norm_eps = tl.get("rms_norm_eps", 1e-6)
+        self.initializer_range = tl.get("initializer_range", 0.02)   # the std of HF's default init (a from-scratch draft); ours trained from 0.0099
+
+    # The saved config.json must read like our DSpark checkpoints' (vLLM's loader goes by `speculators_model_type`): no model_type, none of the derived fields above.
+    _DERIVED = ("model_type", "vocab_size", "hidden_size", "rms_norm_eps", "initializer_range")
+
+    def to_dict(self):
+        return {k: v for k, v in super().to_dict().items() if k not in self._DERIVED}
+
+    def to_diff_dict(self):
+        return {k: v for k, v in super().to_diff_dict().items() if k not in self._DERIVED}
 
     def qwen3_config(self) -> Qwen3Config:
         tl = dict(self.transformer_layer_config)
